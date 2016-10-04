@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -34,18 +35,18 @@ namespace Scrapy
 
         public void Scrape(params ScrapySource[] sources)
         {
-            foreach(var source in sources)
+            foreach (var source in sources)
             {
                 _sources.Add(source);
             }
 
             var tasks = new List<Task>();
 
-            for(var i = 0; i < _options.MaxDegreeOfParallelism; i++)
+            for (var i = 0; i < _options.MaxDegreeOfParallelism; i++)
             {
                 tasks.Add(Task.Factory.StartNew(() =>
                 {
-                    var timeout = TimeSpan.FromMilliseconds(_options.RequestTimeout);
+                    var timeout = TimeSpan.FromMilliseconds(_options.WaitForSourceTimeout);
                     ScrapySource item;
                     while (_sources.TryTake(out item, timeout))
                     {
@@ -66,40 +67,45 @@ namespace Scrapy
 
             foreach (var rule in source.Rules)
             {
-                if (rule.Selector == null) continue;
+                var elements = GetElements(dom, rule);
 
-                var elements = dom.Select(rule.Selector);
+                if (elements == null || !elements.Any()) continue;
 
-                if (elements.Any())
+                switch (rule.Type)
                 {
-                    switch (rule.Type)
-                    {
-                        case ScrapyRuleType.Text:
-                            source.AddContent(rule.Name, WebUtility.HtmlDecode(elements[0].InnerText));
-                            break;
+                    case ScrapyRuleType.Text:
+                        HtmlAgilityPack.HtmlDocument contentDoc = new HtmlAgilityPack.HtmlDocument();
+                        contentDoc.LoadHtml(elements[0].InnerHTML);
+                        source.AddContent(rule.Name, WebUtility.HtmlDecode(contentDoc.DocumentNode.InnerText));
+                        break;
 
-                        case ScrapyRuleType.Image:
-                            source.AddContent(rule.Name, string.Join(", ", elements.Select(x => x.Attributes["src"]).ToArray()));
-                            break;
+                    case ScrapyRuleType.Image:
+                        var imgSrc = elements.Select(x => x.Attributes["src"]).FirstOrDefault();
+                        if (!string.IsNullOrEmpty(imgSrc))
+                        {
+                            source.AddContent(rule.Name, imgSrc);
+                            await DownloadImage(imgSrc);
+                        }
 
-                        case ScrapyRuleType.Source:
+                        break;
 
-                            if (rule.Source == null || rule.Source.Rules == null) break;
+                    case ScrapyRuleType.Source:
 
-                            foreach (var element in elements)
-                            {
-                                var url = element.Attributes["href"];
+                        if (rule.Source == null || rule.Source.Rules == null) break;
 
-                                if (url == null) break;
+                        foreach (var element in elements)
+                        {
+                            var url = element.Attributes["href"];
 
-                                var newSource = new ScrapySource(rule.Source.Rules, source);
+                            if (url == null) break;
 
-                                newSource.Url = url;
+                            var newSource = new ScrapySource(rule.Source.Rules, source);
 
-                                _sources.TryAdd(newSource);
-                            }
-                            break;
-                    }
+                            newSource.Url = url;
+
+                            _sources.TryAdd(newSource);
+                        }
+                        break;
                 }
             }
 
@@ -109,6 +115,56 @@ namespace Scrapy
 
                 _dump?.Invoke(content);
             }
+        }
+
+        private async Task DownloadImage(string url)
+        {
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    using (var response = await client.GetAsync(url))
+                    {
+                        response.EnsureSuccessStatusCode();
+
+                        using (Stream stream = await response.Content.ReadAsStreamAsync())
+                        {
+                            var fileName = url.Split('/').Last();
+
+                            using (FileStream file = new FileStream(fileName, FileMode.Create, FileAccess.Write))
+                            {
+                                await stream.CopyToAsync(file);
+                            }
+                        }
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+
+            }
+        }
+
+        private CsQuery.CQ GetElements(CsQuery.CQ dom, ScrapyRule rule)
+        {
+            if (!string.IsNullOrEmpty(rule.Selector))
+            {
+                return dom.Select(rule.Selector);
+            }
+
+            if (rule.Selectors != null && rule.Selectors.Any())
+            {
+                CsQuery.CQ elements = null;
+
+                foreach (var selector in rule.Selectors)
+                {
+                    elements = dom.Select(selector);
+
+                    if (elements.Length > 0) return elements;
+                }
+            }
+
+            return null;
         }
     }
 }

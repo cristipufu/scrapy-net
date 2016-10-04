@@ -8,14 +8,14 @@ namespace Scrapy
 {
     public class ScrapyOptions
     {
-        public double RequestTimeout { get; set; }
+        public double WaitForSourceTimeout { get; set; }
         public int MaxDegreeOfParallelism { get; set; }
 
         public static ScrapyOptions GetDefault()
         {
             return new ScrapyOptions
             {
-                RequestTimeout = 10000,
+                WaitForSourceTimeout = 10000,
                 MaxDegreeOfParallelism = 20
             };
         }

@@ -10,6 +10,7 @@ namespace Scrapy
     {
         public string Name { get; set; }
         public string Selector { get; set; }
+        public List<string> Selectors { get; set; }
         public ScrapyRuleType Type { get; set; }
         public ScrapySource Source { get; set; }
     }
