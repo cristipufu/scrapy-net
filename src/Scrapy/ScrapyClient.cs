@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -74,13 +75,13 @@ namespace Scrapy
                     switch (rule.Type)
                     {
                         case ScrapyRuleType.Text:
-                            source.AddContent(rule.Name, elements[0].InnerHTML);
-
+                            source.AddContent(rule.Name, WebUtility.HtmlDecode(elements[0].InnerText));
                             break;
+
                         case ScrapyRuleType.Image:
                             source.AddContent(rule.Name, string.Join(", ", elements.Select(x => x.Attributes["src"]).ToArray()));
-
                             break;
+
                         case ScrapyRuleType.Source:
 
                             if (rule.Source == null || rule.Source.Rules == null) break;
@@ -97,7 +98,6 @@ namespace Scrapy
 
                                 _sources.TryAdd(newSource);
                             }
-
                             break;
                     }
                 }

@@ -15,62 +15,42 @@ namespace Scrapy
             {
                 new ScrapyRule
                 {
-                    Name = "Brand",
-                    Selector = "#col-annot h1",
-                    Type = ScrapyRuleType.Text
-                },
-                new ScrapyRule
-                {
-                    Name = "Price",
-                    Selector = ".price",
-                    Type = ScrapyRuleType.Text
-                },
-                new ScrapyRule
-                {
-                    Selector = ".product-list .item a",
+                    Selector = ".product-meta h3.name a",
                     Type = ScrapyRuleType.Source,
                     Source = new ScrapySource(new List<ScrapyRule>
                     {
                         new ScrapyRule
                         {
-                            Name = "Product",
-                            Selector = "h1",
+                            Name = "Name",
+                            Selector = ".product-view h1",
+                            Type = ScrapyRuleType.Text
+                        },
+                        new ScrapyRule
+                        {
+                            Name = "Price",
+                            Selector = ".price-gruop",
                             Type = ScrapyRuleType.Text
                         },
                         new ScrapyRule
                         {
                             Name = "Description",
-                            Selector = ".description .col-l span",
+                            Selector = "#tab-description p",
                             Type = ScrapyRuleType.Text
                         },
                         new ScrapyRule
                         {
                             Name = "Image",
-                            Selector = "#product-image li img",
+                            Selector = ".image a img",
                             Type = ScrapyRuleType.Image
                         }
                     })
                 }
             })
             {
-                Url = "http://www.aoro.ro/loreal-professionnel/"
+                Url = "http://www.cosmoshop.ro/loreal-professionnel"
             };
 
-            //var sources = new ConcurrentBag<ScrapySource>();
-
-            //sources.Add(source);
-
-            //for (var i = 1; i < 15; i++)
-            //{
-            //    var pageSource = new ScrapySource(source.Rules)
-            //    {
-            //        Url = source.Url + string.Format("?f={0}-1-2-258", i)
-            //    };
-
-            //    sources.Add(pageSource);
-            //}
-
-            var dumpFile = "dump_file.txt";
+            var dumpFile = "dump_file.csv";
 
             if (!File.Exists(dumpFile))
             {
@@ -82,7 +62,7 @@ namespace Scrapy
                 {
                     lock (locker)
                     {
-                        var line = string.Join(";", content.Select(x => x.Key + "=" + x.Value).ToArray());
+                        var line = string.Join(",", content.Select(x => $"\"{x.Value}\"").ToArray());
 
                         File.AppendAllText(dumpFile, $"{line}{Environment.NewLine}");
                     }
