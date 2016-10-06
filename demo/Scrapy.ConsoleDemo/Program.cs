@@ -13,64 +13,93 @@ namespace Scrapy.ConsoleDemo
         {
             ConcurrentBag<Dictionary<string, string>> products = new ConcurrentBag<Dictionary<string, string>>();
 
-            var source = new ScrapySource(new List<ScrapyRule>
+            var itemsRule = new ScrapyRule
+            {
+                Selector = ".product-name a",
+                Type = ScrapyRuleType.Source,
+                Source = new ScrapySource(new List<ScrapyRule>
+                {
+                    new ScrapyRule
+                    {
+                        Name = "MetaKeywords",
+                        Selector = "meta[name=keywords]",
+                        Attribute = "content",
+                        Type = ScrapyRuleType.Attribute
+                    },
+                    new ScrapyRule
+                    {
+                        Name = "MetaDescription",
+                        Selector = "meta[name=description]",
+                        Attribute = "content",
+                        Type = ScrapyRuleType.Attribute
+                    },
+                    new ScrapyRule
+                    {
+                        Name = "Name",
+                        Selector = ".product-details h1",
+                        Type = ScrapyRuleType.Text
+                    },
+                    new ScrapyRule
+                    {
+                        Name = "Price",
+                        Selector = ".price",
+                        Type = ScrapyRuleType.Text
+                    },
+                    new ScrapyRule
+                    {
+                        Name = "Description",
+                        Selector = "#tab-description",
+                        Type = ScrapyRuleType.Text
+                    },
+                    new ScrapyRule
+                    {
+                        Name = "Description2",
+                        Selector = "#tab-param",
+                        Type = ScrapyRuleType.Text
+                    },
+                    new ScrapyRule
+                    {
+                        Name = "Image",
+                        Selector = ".product-picture-big",
+                        Type = ScrapyRuleType.Image
+                    }
+                })
+            };
+
+            var rules = new List<ScrapyRule>
             {
                 new ScrapyRule
                 {
-                    Selector = ".product-meta h3.name a",
+                    Selector = ".list-item a",
                     Type = ScrapyRuleType.Source,
                     Source = new ScrapySource(new List<ScrapyRule>
                     {
                         new ScrapyRule
                         {
-                            Name = "MetaKeywords",
-                            Selector = "meta[name=keywords]",
-                            Attribute = "content",
-                            Type = ScrapyRuleType.Attribute
+                            Selector = ".list-item.selected a",
+                            Type = ScrapyRuleType.Text,
+                            Name = "Category"
                         },
                         new ScrapyRule
                         {
-                            Name = "MetaDescription",
-                            Selector = "meta[name=description]",
-                            Attribute = "content",
-                            Type = ScrapyRuleType.Attribute
+                            Selector = ".page-next",
+                            Type = ScrapyRuleType.Source,
+                            Source = new ScrapySource(new List<ScrapyRule>
+                            {
+                                itemsRule
+                            })
                         },
-                        new ScrapyRule
-                        {
-                            Name = "Name",
-                            Selector = ".product-view h1",
-                            Type = ScrapyRuleType.Text
-                        },
-                        new ScrapyRule
-                        {
-                            Name = "Price",
-                            Selectors = new List<string> { ".price-new", ".price-gruop" },
-                            Type = ScrapyRuleType.Text
-                        },
-                        new ScrapyRule
-                        {
-                            Name = "Description",
-                            Selector = "#tab-description",
-                            Type = ScrapyRuleType.Text
-                        },
-                        new ScrapyRule
-                        {
-                            Name = "Description2",
-                            Selector = ".description",
-                            Type = ScrapyRuleType.Text
-                        },
-                        new ScrapyRule
-                        {
-                            Name = "Image",
-                            Selector = ".image a img",
-                            Type = ScrapyRuleType.Image
-                        }
+                        itemsRule
                     })
                 }
-            })
-            {
-                Url = "http://www.cosmoshop.ro/moroccanoil"
             };
+
+            var source = new ScrapySource(rules)
+            {
+                Url = "http://www.profihairshop.ro/nioxin"
+            };
+
+            var sources = new List<ScrapySource>() { source };
 
             var client = new ScrapyClient()
                 .Dump((content) =>
@@ -82,10 +111,10 @@ namespace Scrapy.ConsoleDemo
                     Console.WriteLine(message);
                 });
 
-            client.Scrape(source);
+            client.Scrape(sources.ToArray());
 
             // export
-            ExportToExcel(products.ToArray(), "cosmoshop-moroccanoil");
+            ExportToExcel(products.ToArray(), "profihairshop-nioxin");
         }
 
         private static void ExportToExcel(Dictionary<string, string>[] products, string name)

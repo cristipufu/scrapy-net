@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Scrapy
@@ -68,8 +69,24 @@ namespace Scrapy
 
         private async Task ScrapeSource(ScrapySource source)
         {
-            var httpClient = new HttpClient();
-            var responseBody = await httpClient.GetStringAsync(source.Url);
+            var responseBody = string.Empty;
+
+            try
+            {
+                var httpClient = new HttpClient();
+                if (source.Url.StartsWith("//"))
+                    source.Url = $"http:{source.Url}";
+                if (!string.IsNullOrEmpty(_options.BaseUrl) && !source.Url.StartsWith(_options.BaseUrl))
+                    source.Url = $"{_options.BaseUrl}{source.Url}";
+
+                responseBody = await httpClient.GetStringAsync(source.Url);
+            }
+            catch (Exception ex)
+            {
+                _log?.Invoke($"[Url error]: {ex.Message}");
+            }
+
+            if (string.IsNullOrEmpty(responseBody)) return; 
 
             var dom = CsQuery.CQ.Create(responseBody);
 
@@ -83,8 +100,8 @@ namespace Scrapy
                 {
                     case ScrapyRuleType.Text:
                         HtmlAgilityPack.HtmlDocument contentDoc = new HtmlAgilityPack.HtmlDocument();
-                        contentDoc.LoadHtml(elements[0].InnerHTML);
-                        source.AddContent(rule.Name, WebUtility.HtmlDecode(contentDoc.DocumentNode.InnerText));
+                        contentDoc.LoadHtml($"<div>{elements[0].InnerHTML}</div>");
+                        source.AddContent(rule.Name, WebUtility.HtmlDecode(contentDoc.DocumentNode.InnerText).Trim());
                         break;
 
                     case ScrapyRuleType.Attribute:
@@ -99,15 +116,19 @@ namespace Scrapy
                         break;
 
                     case ScrapyRuleType.Image:
-                        var imgSrc = elements.Select(x => x.Attributes["src"]).FirstOrDefault();
-                        if (!string.IsNullOrEmpty(imgSrc))
+                        var imgSrcs = elements.Select(x => x.Attributes["src"]).ToList();
+                        var imgPaths = new List<string>();
+                        foreach(var imgSrc in imgSrcs)
                         {
                             var fileName = await DownloadImage(imgSrc);
-                            if (string.IsNullOrEmpty(fileName))
+                            if (!string.IsNullOrEmpty(fileName))
                             {
-                                fileName = imgSrc;
+                                imgPaths.Add(fileName);
                             }
-                            source.AddContent(rule.Name, fileName);
+                        }
+                        if (imgPaths.Any())
+                        {
+                            source.AddContent(rule.Name, string.Join("; ", imgPaths));
                         }
                         break;
 
@@ -133,15 +154,31 @@ namespace Scrapy
                 var content = source.GetContent();
 
                 _dump?.Invoke(content);
-                _log?.Invoke($"[Dump]: {source.Url.Split('/').LastOrDefault()}");
+                _log?.Invoke($"[Dump]: {source.Url}");
 
             }
         }
 
         private async Task<string> DownloadImage(string url)
         {
+            if (url.Contains("data:image")) return "";
+
             try
             {
+                var fileName = url.Split('/').LastOrDefault();
+
+                var path = fileName;
+
+                if (!string.IsNullOrEmpty(_options.ImagesPath))
+                {
+                    path = Path.Combine(_options.ImagesPath, path);
+                }
+
+                if (File.Exists(path))
+                {
+                    return fileName;
+                }
+
                 using (HttpClient client = new HttpClient())
                 {
                     using (var response = await client.GetAsync(url))
@@ -150,17 +187,9 @@ namespace Scrapy
 
                         using (Stream stream = await response.Content.ReadAsStreamAsync())
                         {
-                            var fileName = url.Split('/').LastOrDefault();
-
-                            var path = fileName;
-
-                            if (!string.IsNullOrEmpty(_options.ImagesPath))
-                            {
-                                path = Path.Combine(_options.ImagesPath, path);
-                            }
-
                             using (FileStream file = new FileStream(path, FileMode.Create, FileAccess.Write))
                             {
+
                                 await stream.CopyToAsync(file);
                             }
 
