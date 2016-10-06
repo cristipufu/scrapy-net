@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace Scrapy
 {
@@ -24,10 +20,7 @@ namespace Scrapy
             }
         }
 
-        public ScrapySource(List<ScrapyRule> rules, ScrapySource source) : this(rules, source.Content)
-        {
-
-        }
+        public ScrapySource(List<ScrapyRule> rules, ScrapySource source) : this(rules, source.Content) { }
 
         public void AddContent(string key, string value)
         {

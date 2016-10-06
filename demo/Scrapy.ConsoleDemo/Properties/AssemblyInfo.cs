@@ -5,9 +5,14 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Scrapy")]
-[assembly: AssemblyProduct("Scrapy")]
+[assembly: AssemblyTitle("Scrapy.ConsoleDemo")]
+[assembly: AssemblyDescription("")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("Scrapy.ConsoleDemo")]
 [assembly: AssemblyCopyright("Copyright ©  2016")]
+[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
@@ -15,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("bd71b57b-c546-4b91-b74f-c86f4e945712")]
+[assembly: Guid("279ed39a-86b9-4308-8133-44b5dc04d7e0")]
 
 // Version information for an assembly consists of the following four values:
 //

@@ -7,6 +7,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{58F1BABD-192
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scrapy", "src\Scrapy\Scrapy.csproj", "{BD71B57B-C546-4B91-B74F-C86F4E945712}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "demo", "demo", "{03BBD28E-337A-4B93-909E-0129E8A82ED4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scrapy.ConsoleDemo", "demo\Scrapy.ConsoleDemo\Scrapy.ConsoleDemo.csproj", "{279ED39A-86B9-4308-8133-44B5DC04D7E0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,11 +21,16 @@ Global
 		{BD71B57B-C546-4B91-B74F-C86F4E945712}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BD71B57B-C546-4B91-B74F-C86F4E945712}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BD71B57B-C546-4B91-B74F-C86F4E945712}.Release|Any CPU.Build.0 = Release|Any CPU
+		{279ED39A-86B9-4308-8133-44B5DC04D7E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{279ED39A-86B9-4308-8133-44B5DC04D7E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{279ED39A-86B9-4308-8133-44B5DC04D7E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{279ED39A-86B9-4308-8133-44B5DC04D7E0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BD71B57B-C546-4B91-B74F-C86F4E945712} = {58F1BABD-192F-4E05-8687-4984F491DE24}
+		{279ED39A-86B9-4308-8133-44B5DC04D7E0} = {03BBD28E-337A-4B93-909E-0129E8A82ED4}
 	EndGlobalSection
 EndGlobal
