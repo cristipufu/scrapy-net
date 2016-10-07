@@ -1,6 +1,4 @@
-﻿using NPOI.SS.UserModel;
-using NPOI.XSSF.UserModel;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -13,6 +11,8 @@ namespace Scrapy.ConsoleDemo
         {
             ConcurrentBag<Dictionary<string, string>> products = new ConcurrentBag<Dictionary<string, string>>();
 
+            // define rules
+            // TODO define rules as json object
             var itemsRule = new ScrapyRule
             {
                 Selector = ".product-name a",
@@ -82,7 +82,7 @@ namespace Scrapy.ConsoleDemo
                         },
                         new ScrapyRule
                         {
-                            Selector = ".page-next",
+                            Selector = ".page-next", // TODO find a way to apply this rule for each children sources
                             Type = ScrapyRuleType.Source,
                             Source = new ScrapySource(new List<ScrapyRule>
                             {
@@ -96,76 +96,36 @@ namespace Scrapy.ConsoleDemo
 
             var source = new ScrapySource(rules)
             {
+                Name = "profihairshop-nioxin",
                 Url = "http://www.profihairshop.ro/nioxin"
             };
 
-            var sources = new List<ScrapySource>() { source };
+            var path = $@"D:\Scrapy\{source.Name}";
 
-            var client = new ScrapyClient()
-                .Dump((content) =>
-                {
-                    products.Add(content);
-                })
-                .Log((message) =>
-                {
-                    Console.WriteLine(message);
-                });
-
-            client.Scrape(sources.ToArray());
-
-            // export
-            ExportToExcel(products.ToArray(), "profihairshop-nioxin");
-        }
-
-        private static void ExportToExcel(Dictionary<string, string>[] products, string name)
-        {
-            Array.Sort(products, new DictionaryComparer());
-
-            var wb = new XSSFWorkbook();
-
-            var sh = (XSSFSheet)wb.CreateSheet(name);
-
-            for (var i = 0; i < products.Length; i++)
+            // init client
+            var client = new ScrapyClient(new ScrapyOptions
             {
-                var product = products[i];
-                IRow header = null;
-
-                if (i == 0)
-                {
-                    header = sh.CreateRow(i);
-                }
-
-                var r = sh.CreateRow(i + 1);
-                var j = 0;
-
-                foreach (var key in product.Keys)
-                {
-                    if (i == 0)
-                    {
-                        var headerCell = header.CreateCell(j);
-                        headerCell.SetCellValue(key);
-                    }
-                    var cell = r.CreateCell(j);
-                    cell.SetCellValue(product[key]);
-                    j++;
-                }
-            }
-
-            using (var fs = new FileStream($"{name}.xlsx", FileMode.Create, FileAccess.Write))
+                BaseUrl = "http://www.profihairshop.ro/",
+                WaitForSourceTimeout = 10000,
+                MaxDegreeOfParallelism = 20,
+                Path = path
+            })
+            .Dump((content) =>
             {
-                wb.Write(fs);
-            }
-        }
-
-        public class DictionaryComparer : IComparer<Dictionary<string, string>>
-        {
-            public DictionaryComparer()
+                products.Add(content);
+            })
+            .Log((message) =>
             {
-            }
+                Console.WriteLine(message);
+            });
 
-            public int Compare(Dictionary<string, string> x, Dictionary<string, string> y)
+            // start scraping
+            client.Scrape(source);
+
+            if (products.Count > 0)
             {
-                return y.Keys.Count - x.Keys.Count;
+                // export
+                new ExcelBuilder(products.ToArray()).ToExcelFile(Path.Combine(path, "products.xlsx"));
             }
         }
     }

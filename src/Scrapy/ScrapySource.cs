@@ -4,34 +4,35 @@ namespace Scrapy
 {
     public class ScrapySource
     {
-        public Dictionary<string, string> Content;
+        private Dictionary<string, string> _content;
 
         public ScrapySource(List<ScrapyRule> rules)
         {
             Rules = rules;
-            Content = new Dictionary<string, string>();
+            _content = new Dictionary<string, string>();
         }
 
         public ScrapySource(List<ScrapyRule> rules, Dictionary<string, string> dict) : this(rules)
         {
             foreach (var key in dict.Keys)
             {
-                Content.Add(key, dict[key]);
+                _content.Add(key, dict[key]);
             }
         }
 
-        public ScrapySource(List<ScrapyRule> rules, ScrapySource source) : this(rules, source.Content) { }
+        public ScrapySource(List<ScrapyRule> rules, ScrapySource source) : this(rules, source._content) { }
 
         public void AddContent(string key, string value)
         {
-            Content.Add(key, value);
+            _content.Add(key, value);
         }
 
         public Dictionary<string, string> GetContent()
         {
-            return Content;
+            return _content;
         }
 
+        public string Name { get; set; }
         public string Url { get; set; }
         public List<ScrapyRule> Rules { get; set; }
     }

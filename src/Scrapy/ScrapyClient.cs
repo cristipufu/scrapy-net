@@ -1,11 +1,13 @@
-﻿using System;
+﻿using AngleSharp.Dom;
+using AngleSharp.Dom.Html;
+using AngleSharp.Parser.Html;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Scrapy
@@ -26,6 +28,14 @@ namespace Scrapy
         public ScrapyClient(ScrapyOptions options)
         {
             _options = options;
+
+            if (!string.IsNullOrEmpty(options.Path))
+            {
+                if (!Directory.Exists(options.Path))
+                {
+                    Directory.CreateDirectory(options.Path);
+                }
+            }
         }
 
         public ScrapyClient Dump(Action<Dictionary<string, string>> action)
@@ -86,9 +96,10 @@ namespace Scrapy
                 _log?.Invoke($"[Url error]: {ex.Message}");
             }
 
-            if (string.IsNullOrEmpty(responseBody)) return; 
+            if (string.IsNullOrEmpty(responseBody)) return;
 
-            var dom = CsQuery.CQ.Create(responseBody);
+            var parser = new HtmlParser();
+            var dom = parser.Parse(responseBody);
 
             foreach (var rule in source.Rules)
             {
@@ -99,9 +110,7 @@ namespace Scrapy
                 switch (rule.Type)
                 {
                     case ScrapyRuleType.Text:
-                        HtmlAgilityPack.HtmlDocument contentDoc = new HtmlAgilityPack.HtmlDocument();
-                        contentDoc.LoadHtml($"<div>{elements[0].InnerHTML}</div>");
-                        source.AddContent(rule.Name, WebUtility.HtmlDecode(contentDoc.DocumentNode.InnerText).Trim());
+                        source.AddContent(rule.Name, WebUtility.HtmlDecode(elements[0].TextContent).Trim());
                         break;
 
                     case ScrapyRuleType.Attribute:
@@ -110,13 +119,13 @@ namespace Scrapy
                         var firstElement = elements[0];
                         if (firstElement.HasAttribute(rule.Attribute))
                         {
-                            var attr = elements[0].Attributes[rule.Attribute];
-                            source.AddContent(rule.Name, attr);
+                            var attr = firstElement.Attributes[rule.Attribute];
+                            source.AddContent(rule.Name, attr.Value);
                         }
                         break;
 
                     case ScrapyRuleType.Image:
-                        var imgSrcs = elements.Select(x => x.Attributes["src"]).ToList();
+                        var imgSrcs = elements.Select(x => x.Attributes["src"].Value).ToList();
                         var imgPaths = new List<string>();
                         foreach(var imgSrc in imgSrcs)
                         {
@@ -136,7 +145,7 @@ namespace Scrapy
                         if (rule.Source == null || rule.Source.Rules == null) break;
                         foreach (var element in elements)
                         {
-                            var url = element.Attributes["href"];
+                            var url = element.Attributes["href"].Value;
                             if (url == null) break;
                             var newSource = new ScrapySource(rule.Source.Rules, source);
                             newSource.Url = url;
@@ -161,6 +170,7 @@ namespace Scrapy
 
         private async Task<string> DownloadImage(string url)
         {
+            // TODO download byte data image
             if (url.Contains("data:image")) return "";
 
             try
@@ -169,9 +179,9 @@ namespace Scrapy
 
                 var path = fileName;
 
-                if (!string.IsNullOrEmpty(_options.ImagesPath))
+                if (!string.IsNullOrEmpty(_options.Path))
                 {
-                    path = Path.Combine(_options.ImagesPath, path);
+                    path = Path.Combine(_options.Path, path);
                 }
 
                 if (File.Exists(path))
@@ -179,6 +189,7 @@ namespace Scrapy
                     return fileName;
                 }
 
+                // TODO should lock here by filename
                 using (HttpClient client = new HttpClient())
                 {
                     using (var response = await client.GetAsync(url))
@@ -189,7 +200,6 @@ namespace Scrapy
                         {
                             using (FileStream file = new FileStream(path, FileMode.Create, FileAccess.Write))
                             {
-
                                 await stream.CopyToAsync(file);
                             }
 
@@ -206,25 +216,24 @@ namespace Scrapy
             return string.Empty;
         }
 
-        private CsQuery.CQ GetElements(CsQuery.CQ dom, ScrapyRule rule)
+        private IHtmlCollection<IElement> GetElements(IHtmlDocument dom, ScrapyRule rule)
         {
             if (!string.IsNullOrEmpty(rule.Selector))
             {
-                return dom.Select(rule.Selector);
+                return dom.QuerySelectorAll(rule.Selector);
             }
 
             if (rule.Selectors != null && rule.Selectors.Any())
             {
-                CsQuery.CQ elements = null;
+                IHtmlCollection<IElement> elements = null;
 
                 foreach (var selector in rule.Selectors)
                 {
-                    elements = dom.Select(selector);
+                    elements = dom.QuerySelectorAll(selector);
 
                     if (elements.Length > 0) return elements;
                 }
             }
-
             return null;
         }
     }
