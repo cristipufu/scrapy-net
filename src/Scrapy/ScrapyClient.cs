@@ -14,13 +14,14 @@ namespace Scrapy
 {
     public class ScrapyClient
     {
-        private BlockingCollection<ScrapySource> _sources = new BlockingCollection<ScrapySource>();
-        private ScrapyOptions _options;
+        private readonly HttpClient _client = new HttpClient();
+        private readonly BlockingCollection<ScrapySource> _sources = new BlockingCollection<ScrapySource>();
+        private readonly ScrapyOptions _options;
 
         private Action<Dictionary<string, string>> _dump;
         private Action<string> _log;
 
-        public ScrapyClient() : this(ScrapyOptions.GetDefault())
+        public ScrapyClient() : this(ScrapyOptions.Default)
         {
 
         }
@@ -52,7 +53,27 @@ namespace Scrapy
             return this;
         }
 
-        public void Scrape(params ScrapySource[] sources)
+        public async Task ScrapeAsync(params ScrapySource[] sources)
+        {
+            foreach (var source in sources)
+            {
+                _sources.Add(source);
+            }
+
+            while (_sources.Any())
+            {
+                var tasks = new List<Task>();
+
+                while (_sources.TryTake(out var source))
+                {
+                    tasks.Add(ScrapeSourceAsync(source));
+                }
+
+                await Task.WhenAll(tasks);
+            }
+        }
+
+        public async Task ScrapeParallelAsync(params ScrapySource[] sources)
         {
             foreach (var source in sources)
             {
@@ -63,33 +84,33 @@ namespace Scrapy
 
             for (var i = 0; i < _options.MaxDegreeOfParallelism; i++)
             {
-                tasks.Add(Task.Factory.StartNew(() =>
+                tasks.Add(Task.Run(async () =>
                 {
                     var timeout = TimeSpan.FromMilliseconds(_options.WaitForSourceTimeout);
-                    ScrapySource item;
-                    while (_sources.TryTake(out item, timeout))
+
+                    while (_sources.TryTake(out var item, timeout))
                     {
-                        ScrapeSource(item).Wait();
+                        await ScrapeSourceAsync(item);
                     }
                 }));
             }
 
-            Task.WaitAll(tasks.ToArray());
+            await Task.WhenAll(tasks);
         }
 
-        private async Task ScrapeSource(ScrapySource source)
+        private async Task ScrapeSourceAsync(ScrapySource source)
         {
             var responseBody = string.Empty;
 
             try
             {
-                var httpClient = new HttpClient();
                 if (source.Url.StartsWith("//"))
                     source.Url = $"http:{source.Url}";
+
                 if (!string.IsNullOrEmpty(_options.BaseUrl) && !source.Url.StartsWith(_options.BaseUrl))
                     source.Url = $"{_options.BaseUrl}{source.Url}";
 
-                responseBody = await httpClient.GetStringAsync(source.Url);
+                responseBody = await _client.GetStringAsync(source.Url);
             }
             catch (Exception ex)
             {
@@ -105,55 +126,77 @@ namespace Scrapy
             {
                 var elements = GetElements(dom, rule);
 
-                if (elements == null || !elements.Any()) continue;
+                if (elements == null || !elements.Any())
+                    continue;
 
                 switch (rule.Type)
                 {
                     case ScrapyRuleType.Text:
+
                         source.AddContent(rule.Name, WebUtility.HtmlDecode(elements[0].TextContent).Trim());
+
                         break;
 
                     case ScrapyRuleType.Attribute:
+
                         if (string.IsNullOrEmpty(rule.Attribute))
                             continue;
+
                         var firstElement = elements[0];
+
                         if (firstElement.HasAttribute(rule.Attribute))
                         {
                             var attr = firstElement.Attributes[rule.Attribute];
                             source.AddContent(rule.Name, attr.Value);
                         }
+
                         break;
 
                     case ScrapyRuleType.Image:
+
                         var imgSrcs = elements.Select(x => x.Attributes["src"].Value).ToList();
                         var imgPaths = new List<string>();
+
                         foreach(var imgSrc in imgSrcs)
                         {
-                            var fileName = await DownloadImage(imgSrc);
+                            var fileName = await DownloadAsync(imgSrc);
+
                             if (!string.IsNullOrEmpty(fileName))
                             {
                                 imgPaths.Add(fileName);
                             }
                         }
+
                         if (imgPaths.Any())
                         {
                             source.AddContent(rule.Name, string.Join("; ", imgPaths));
                         }
+
                         break;
 
                     case ScrapyRuleType.Source:
-                        if (rule.Source == null || rule.Source.Rules == null) break;
+
+                        if (rule.Source?.Rules == null)
+                            break;
+
                         foreach (var element in elements)
                         {
                             var url = element.Attributes["href"].Value;
-                            if (url == null) break;
-                            var newSource = new ScrapySource(rule.Source.Rules, source);
-                            newSource.Url = url;
+
+                            if (url == null)
+                                break;
+
+                            var newSource = new ScrapySource(rule.Source.Rules, source)
+                            {
+                                Url = url
+                            };
+
                             if (_sources.TryAdd(newSource))
                             {
                                 _log?.Invoke($"[Source]: {url}");
                             }
                         }
+
                         break;
                 }
             }
@@ -168,10 +211,11 @@ namespace Scrapy
             }
         }
 
-        private async Task<string> DownloadImage(string url)
+        private async Task<string> DownloadAsync(string url)
         {
             // TODO download byte data image
-            if (url.Contains("data:image")) return "";
+            if (url.Contains("data:image"))
+                return "";
 
             try
             {
@@ -189,22 +233,19 @@ namespace Scrapy
                     return fileName;
                 }
 
-                // TODO should lock here by filename
-                using (HttpClient client = new HttpClient())
+                // TODO should lock by path here 
+                using (var response = await _client.GetAsync(url))
                 {
-                    using (var response = await client.GetAsync(url))
+                    response.EnsureSuccessStatusCode();
+
+                    using (var stream = await response.Content.ReadAsStreamAsync())
                     {
-                        response.EnsureSuccessStatusCode();
-
-                        using (Stream stream = await response.Content.ReadAsStreamAsync())
+                        using (var file = new FileStream(path, FileMode.Create, FileAccess.Write))
                         {
-                            using (FileStream file = new FileStream(path, FileMode.Create, FileAccess.Write))
-                            {
-                                await stream.CopyToAsync(file);
-                            }
-
-                            return fileName;
+                            await stream.CopyToAsync(file);
                         }
+
+                        return fileName;
                     }
                 }
             }
@@ -225,15 +266,15 @@ namespace Scrapy
 
             if (rule.Selectors != null && rule.Selectors.Any())
             {
-                IHtmlCollection<IElement> elements = null;
-
                 foreach (var selector in rule.Selectors)
                 {
-                    elements = dom.QuerySelectorAll(selector);
+                    var elements = dom.QuerySelectorAll(selector);
 
-                    if (elements.Length > 0) return elements;
+                    if (elements.Length > 0)
+                        return elements;
                 }
             }
+
             return null;
         }
     }

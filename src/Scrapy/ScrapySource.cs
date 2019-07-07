@@ -4,7 +4,12 @@ namespace Scrapy
 {
     public class ScrapySource
     {
-        private Dictionary<string, string> _content;
+        private readonly Dictionary<string, string> _content;
+
+        public ScrapySource(ScrapyRule rule) : this(new List<ScrapyRule> { rule })
+        {
+
+        }
 
         public ScrapySource(List<ScrapyRule> rules)
         {

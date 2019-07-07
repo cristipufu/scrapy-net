@@ -15,7 +15,7 @@ namespace Scrapy.ConsoleDemo
             this.products = products;
         }
 
-        public void ToExcelFile(string path)
+        public void Export(string path)
         {
             Array.Sort(products, new DictionaryComparer());
 

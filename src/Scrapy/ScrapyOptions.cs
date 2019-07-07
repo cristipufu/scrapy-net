@@ -7,13 +7,10 @@
         public string Path { get; set; }
         public string BaseUrl { get; set; }
 
-        public static ScrapyOptions GetDefault()
+        public static ScrapyOptions Default { get; } = new ScrapyOptions
         {
-            return new ScrapyOptions
-            {
-                WaitForSourceTimeout = 10000,
-                MaxDegreeOfParallelism = 20
-            };
-        }
+            WaitForSourceTimeout = 2000,
+            MaxDegreeOfParallelism = 20
+        };
     }
 }

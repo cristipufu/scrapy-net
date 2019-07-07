@@ -1,113 +1,69 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Threading.Tasks;
 
 namespace Scrapy.ConsoleDemo
 {
     class Program
     {
-        static void Main(string[] args)
-        {
-            ConcurrentBag<Dictionary<string, string>> products = new ConcurrentBag<Dictionary<string, string>>();
+       static async Task Main(string[] args)
+       {
+            ServicePointManager.DefaultConnectionLimit = 20;
 
-            // define rules
-            // TODO define rules as json object
-            var itemsRule = new ScrapyRule
+            var products = new ConcurrentBag<Dictionary<string, string>>();
+
+            // TODO import rules from a json file
+            var rule = new ScrapyRule
             {
-                Selector = ".product-name a",
+                Selector = ".page-title a",
                 Type = ScrapyRuleType.Source,
                 Source = new ScrapySource(new List<ScrapyRule>
                 {
                     new ScrapyRule
                     {
-                        Name = "MetaKeywords",
-                        Selector = "meta[name=keywords]",
-                        Attribute = "content",
-                        Type = ScrapyRuleType.Attribute
-                    },
-                    new ScrapyRule
-                    {
-                        Name = "MetaDescription",
-                        Selector = "meta[name=description]",
-                        Attribute = "content",
-                        Type = ScrapyRuleType.Attribute
-                    },
-                    new ScrapyRule
-                    {
                         Name = "Name",
-                        Selector = ".product-details h1",
+                        Selector = ".country-name",
                         Type = ScrapyRuleType.Text
                     },
                     new ScrapyRule
                     {
-                        Name = "Price",
-                        Selector = ".price",
+                        Name = "Capital",
+                        Selector = ".country-info .country-capital",
                         Type = ScrapyRuleType.Text
                     },
                     new ScrapyRule
                     {
-                        Name = "Description",
-                        Selector = "#tab-description",
+                        Name = "Population",
+                        Selector = ".country-info .country-population",
                         Type = ScrapyRuleType.Text
                     },
                     new ScrapyRule
                     {
-                        Name = "Description2",
-                        Selector = "#tab-param",
+                        Name = "Area",
+                        Selector = ".country-info .country-area",
                         Type = ScrapyRuleType.Text
-                    },
-                    new ScrapyRule
-                    {
-                        Name = "Image",
-                        Selector = ".product-picture-big",
-                        Type = ScrapyRuleType.Image
                     }
                 })
             };
 
-            var rules = new List<ScrapyRule>
+            var source = new ScrapySource(rule)
             {
-                new ScrapyRule
-                {
-                    Selector = ".list-item a",
-                    Type = ScrapyRuleType.Source,
-                    Source = new ScrapySource(new List<ScrapyRule>
-                    {
-                        new ScrapyRule
-                        {
-                            Selector = ".list-item.selected a",
-                            Type = ScrapyRuleType.Text,
-                            Name = "Category"
-                        },
-                        new ScrapyRule
-                        {
-                            Selector = ".page-next", // TODO find a way to apply this rule for each children sources
-                            Type = ScrapyRuleType.Source,
-                            Source = new ScrapySource(new List<ScrapyRule>
-                            {
-                                itemsRule
-                            })
-                        },
-                        itemsRule
-                    })
-                }
+                Name = "countries",
+                Url = "https://scrapethissite.com/pages/"
             };
 
-            var source = new ScrapySource(rules)
-            {
-                Name = "profihairshop-nioxin",
-                Url = "http://www.profihairshop.ro/nioxin"
-            };
-
-            var path = $@"D:\Scrapy\{source.Name}";
+            var path = $@"C:\Scrapy\{source.Name}";
 
             // init client
             var client = new ScrapyClient(new ScrapyOptions
             {
-                BaseUrl = "http://www.profihairshop.ro/",
-                WaitForSourceTimeout = 10000,
-                MaxDegreeOfParallelism = 20,
+                BaseUrl = "https://scrapethissite.com/",
+                WaitForSourceTimeout = 500,
+                MaxDegreeOfParallelism = 10,
                 Path = path
             })
             .Dump((content) =>
@@ -120,13 +76,22 @@ namespace Scrapy.ConsoleDemo
             });
 
             // start scraping
-            client.Scrape(source);
+            var sw = Stopwatch.StartNew();
+
+            await client.ScrapeAsync(source);
+
+            sw.Stop();
+
+            Console.WriteLine($"ElapsedMilliseconds: {sw.ElapsedMilliseconds}");
 
             if (products.Count > 0)
             {
                 // export
-                new ExcelBuilder(products.ToArray()).ToExcelFile(Path.Combine(path, "products.xlsx"));
+                new ExcelBuilder(products.ToArray())
+                    .Export(Path.Combine(path, "products.xlsx"));
             }
+
+            Console.ReadLine();
         }
     }
 }
