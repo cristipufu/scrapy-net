@@ -55,8 +55,8 @@ var rules = new List<ScrapyRule>
 
 var source = new ScrapySource(rules)
 {
-    Name = "profihairshop-nioxin",
-    Url = "http://www.profihairshop.ro/nioxin"
+    Name = "scrapy",
+    Url = "https://scrapethissite.com/"
 };
 
 var path = $@"D:\Scrapy\{source.Name}";
@@ -64,9 +64,9 @@ var path = $@"D:\Scrapy\{source.Name}";
 // init client
 var client = new ScrapyClient(new ScrapyOptions
 {
-    BaseUrl = "http://www.profihairshop.ro/",
-    WaitForSourceTimeout = 10000,
-    MaxDegreeOfParallelism = 20,
+    BaseUrl = "https://scrapethissite.com/",
+    WaitForSourceTimeout = 500,
+    MaxDegreeOfParallelism = 10,
     Path = path
 })
 .Dump((content) =>
