@@ -79,5 +79,5 @@ var client = new ScrapyClient(new ScrapyOptions
 });
 
 // start scraping
-client.Scrape(source);
+await client.ScrapeAsync(source);
 ```
